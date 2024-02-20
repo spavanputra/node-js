@@ -56,12 +56,15 @@ app.post('/register', async (request, response) => {
       await database.run(createUserQuery)
       response.send('User created successfully')
     } else {
+      const lengthofpass = length.password
+      if(lengthofpass<5){
       response.status(400)
       response.send('Password is too short')
+      }
     }
   } else {
     response.status(400)
-    response.send('User already exists')
+    response.send('User already exists ')
   }
 })
 //api 2
@@ -75,7 +78,7 @@ app.post('/login', async (request, response) => {
     response.status(400)
     response.send('Invalid user')
   } else {
-    const ispasswordcorrect = bcrypt.compare(password, dbUser.password)
+    const ispasswordcorrect = await bcrypt.compare(password, dbUser.password)
 
     if (ispasswordcorrect === true) {
       response.status(200)
@@ -83,6 +86,34 @@ app.post('/login', async (request, response) => {
     } else {
       response.status(400)
       response.send('Invalid password')
+    }
+  }
+})
+
+//api 3
+
+app.put('/change-password', async (request, response) => {
+  const {username, oldpassword, newpassword} = request.body
+  const selectUserQuery = `SELECT * FROM user WHERE username = '${username}';`
+  const dbUser = await database.get(selectUserQuery)
+
+  if (dbUser === undefined) {
+    response.status(400)
+    response.send('Invalid current password')
+  } else {
+    const ispasscorrect = await bcrypt.compare(oldpassword, dbUser.password)
+    const lengthofpass = newpassword.length
+    if (lengthofpass < 5) {
+      response.status(400)
+      response.send('Password is too short')
+    } else {
+      const changedpass = await bcypt.hash(newpassword, 10)
+      const updatepassquery = `update user set password = '${changedpass}'
+                              where username = '${username}'
+      `
+      await db.run(updatepassquery)
+      response.status(200)
+      response.send('Password updated')
     }
   }
 })
