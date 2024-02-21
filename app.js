@@ -11,6 +11,7 @@ const app = express()
 app.use(express.json())
 
 let database = null
+module.exports = app
 
 const initializeDbAndServer = async () => {
   try {
@@ -31,7 +32,7 @@ const initializeDbAndServer = async () => {
 initializeDbAndServer()
 
 const validatePassword = password => {
-  return password.length > 4
+  return password.length > 5
 }
 
 app.post('/register', async (request, response) => {
@@ -56,15 +57,15 @@ app.post('/register', async (request, response) => {
       await database.run(createUserQuery)
       response.send('User created successfully')
     } else {
-      const lengthofpass = length.password
-      if(lengthofpass<5){
-      response.status(400)
-      response.send('Password is too short')
+      const lengthofpass = password.length
+      if (lengthofpass < 5) {
+        response.status(400)
+        response.send('Password is too short')
       }
     }
   } else {
     response.status(400)
-    response.send('User already exists ')
+    response.send('User already exists')
   }
 })
 //api 2
@@ -94,26 +95,27 @@ app.post('/login', async (request, response) => {
 
 app.put('/change-password', async (request, response) => {
   const {username, oldpassword, newpassword} = request.body
-  const selectUserQuery = `SELECT * FROM user WHERE username = '${username}';`
-  const dbUser = await database.get(selectUserQuery)
-
-  if (dbUser === undefined) {
+  const checkUserQuery = `SELECT * FROM user WHERE username = '${username}';`
+  const dbUser = await db.get(checkUserQuery)
+  if (checkUserQuery === undefined) {
     response.status(400)
-    response.send('Invalid current password')
+    response.send('User not registered')
   } else {
-    const ispasscorrect = await bcrypt.compare(oldpassword, dbUser.password)
-    const lengthofpass = newpassword.length
-    if (lengthofpass < 5) {
-      response.status(400)
-      response.send('Password is too short')
+    const ispassvalid = await bcrypt.compare(oldpassword, dbUser.password)
+    if (ispassvalid === true) {
+      const lengthofpass = newpassword.length
+      if (lengthofpass < 5) {
+        response.status(400)
+        response.send('Password is too short')
+      } else {
+        const newencypass = await bcrypt.hash(newpassword, 10)
+        const updatepass = `update user set password = '${newencypass}' where username = '${username}'`
+        await db.run(updatepass)
+        response.send('Password updated')
+      }
     } else {
-      const changedpass = await bcypt.hash(newpassword, 10)
-      const updatepassquery = `update user set password = '${changedpass}'
-                              where username = '${username}'
-      `
-      await db.run(updatepassquery)
-      response.status(200)
-      response.send('Password updated')
+      response.status(400)
+      response.send('Invalid current password')
     }
   }
 })
